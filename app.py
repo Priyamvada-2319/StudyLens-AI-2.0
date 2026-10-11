@@ -9,6 +9,7 @@ import streamlit as st
 from core import engine as en
 from core import storage as db
 from core.local_ai import local_model
+from core.web_quiz import generate_reference_quiz, google_url
 
 st.set_page_config(page_title='StudyLens AI 2.0',page_icon='🎓',layout='wide')
 db.init()
@@ -21,7 +22,7 @@ for name,default in {'quiz':[], 'results':None,'quiz_key':'','report':'','cards_
 with st.sidebar:
     st.header('Your preparation')
     demo_id=st.text_input('Demo identifier (not a password)','Exhibition Guest').strip() or 'Exhibition Guest'
-    exam=st.selectbox('Preparation domain',en.EXAMS)
+    exam=st.selectbox('Preparation domain',en.EXAMS,index=en.EXAMS.index('ISC Boards'))
     if exam=='Other / Custom':exam=st.text_input('Specify examination','School examination')
     grade=st.selectbox('Level',['Class 8','Class 9','Class 10','Class 11','Class 12','Graduation','Other'],index=3)
     st.info('Cloud mode: no API key required. Local AI is optional.')
@@ -81,38 +82,58 @@ elif section=='📚 Source Material':
 elif section=='📝 Diagnostic Test':
     st.subheader('Start a diagnostic assessment')
     subjects=sorted(set(x[0] for x in en.SEEDS))
-    subject=st.selectbox('Subject',subjects+['Custom subject'])
-    if subject=='Custom subject':subject=st.text_input('Subject name','History')
-    topics=sorted({x[1] for x in en.SEEDS if x[0]==subject})
-    topic=st.selectbox('Topic',topics+['Custom topic']) if topics else 'Custom topic'
-    if topic=='Custom topic':topic=st.text_input('Topic name','Your topic')
-    difficulty=st.selectbox('Question difficulty',en.DIFFICULTIES)
-    source=st.radio('Question source',['Curated demo bank','Local AI (Ollama; laptop only)'],horizontal=True)
-    n=st.slider('Questions',1,15,5)
-    if source=='Curated demo bank':
+    subject=st.selectbox('Subject',subjects+['Custom subject'],index=subjects.index('Physics'))
+    if subject=='Custom subject':
+        subject=st.text_input('Subject name','History').strip()
+    topic=st.text_input('Enter any topic',value='Motion in a Straight Line',placeholder='e.g. Cell division, World War I, Integration, Photosynthesis').strip()
+    difficulty=st.selectbox('Question difficulty',en.DIFFICULTIES,index=1)
+    source=st.radio('Question source',[
+        'Online references (no API key)',
+        'Curated demo bank',
+        'Local AI (Ollama; laptop only)'
+    ])
+    n=st.select_slider('Number of questions',options=[5,10,15,20],value=10)
+    if topic:
+        st.link_button('🔎 Also search Google for this topic',google_url(topic,exam,grade))
+    st.caption('For Physics straight-line motion, StudyLens generates new equation-checked numerical problems and links an open textbook. For other topics, online mode retrieves Wikipedia references and makes template questions. It does not automatically scrape Google or use a generative AI model.')
+    if source=='Curated demo bank' and topic:
         available=en.question_bank(subject,topic,difficulty)
-        st.caption(f'{len(available)} matching verified seed questions. Limited bank: change difficulty/topic or use optional local AI for more.')
+        st.caption(f'{len(available)} matching curated items. This small bank may not provide five questions; use Online references for custom topics.')
     if st.button('Generate new assessment',type='primary'):
         try:
-            if source=='Curated demo bank':
+            if not topic:
+                st.warning('Please enter your topic.');st.stop()
+            if source=='Online references (no API key)':
+                with st.spinner('Searching public reference pages and preparing your questions...'):
+                    if en.is_straight_line_motion(subject, topic):
+                        quiz=en.kinematics_quiz(subject,topic,difficulty,n,exam,grade)
+                    else:
+                        quiz=generate_reference_quiz(subject,topic,difficulty,min(n,12),exam,grade)
+                        if len(quiz)<n:
+                            st.warning(f'This reference source supports only {len(quiz)} questions, not {n}.')
+            elif source=='Curated demo bank':
                 bank=en.question_bank(subject,topic,difficulty)
-                if not bank:st.warning('No prechecked questions for that combination. Choose an available subject/topic/difficulty.');st.stop()
+                if len(bank)<5:
+                    st.warning('Fewer than 5 curated questions are available for this combination. Select Online references instead.');st.stop()
                 quiz=en.safe_quiz(bank,n)
             else:
-                prompt=(f'Generate {n} distinct {difficulty} level questions for {exam}, {grade}, subject {subject}, topic {topic}. '
+                prompt=(f'Generate at least {n} distinct {difficulty} level questions for {exam}, {grade}, subject {subject}, topic {topic}. '
                     'Respond as JSON object with key "questions", a list of objects with topic, question, options (4 unique strings), answer (exact matching option), and explanation. '
                     'Factual correctness matters. Do not invent source citations. ')
                 if st.session_state.source_text:
                     prompt+=' Base questions only on this source excerpt and avoid outside claims: '+st.session_state.source_text[:12000]
                 data=local_model(prompt,as_json=True)
                 quiz=en.clean_questions(data,subject,topic,difficulty,source='Local model')[:n]
-            st.session_state.quiz=quiz;st.session_state.results=None;st.session_state.quiz_key=en.uuid_hash(str(random.random()))
+                if len(quiz)<5: raise ValueError('The local model did not return five valid questions. Retry.')
+            st.session_state.quiz=quiz
+            st.session_state.results=None
+            st.session_state.quiz_key=en.uuid_hash(str(random.random()))
             st.rerun()
-        except Exception:
-            st.error('Could not generate questions. Local model mode needs Ollama running on the same computer as Streamlit. Cloud users should select the curated demo bank.')
+        except Exception as error:
+            st.error(f'Could not create a 5-question assessment: {error}')
     if st.session_state.quiz and st.session_state.results is None:
         quiz=st.session_state.quiz
-        st.warning('AI-generated questions may contain errors. Verify any question before relying on its score.') if quiz[0]['source']=='Local model' else None
+        st.warning('Reference-based and AI-generated questions can be imperfect. Review source descriptions and answers before relying on results.') if quiz[0]['source']!='Curated demo bank' else None
         with st.form(f"quiz_{st.session_state.quiz_key}"):
             selected=[];conf=[]
             for i,q in enumerate(quiz):
@@ -135,8 +156,10 @@ elif section=='📝 Diagnostic Test':
             with st.expander(('✅ ' if r['correct'] else '❌ ')+r['question']):
                 st.write(f"Your answer: {r['selected']} | Correct: {r['answer']}")
                 st.write(r['explanation'])
+                if r.get('source_url'):
+                    st.link_button('Read supporting reference',r['source_url'])
         st.dataframe(pd.DataFrame(en.diagnostic(rows)),hide_index=True,use_container_width=True)
-        st.caption('A one-question topic diagnostic is uncertain; repeat with varied items before claiming mastery.')
+        st.caption('A short topic diagnostic is uncertain; repeat with varied items before claiming mastery.')
 
 elif section=='📊 My Diagnostics':
     st.subheader('Learning-gap dashboard')
