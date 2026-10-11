@@ -132,9 +132,13 @@ elif section=='📝 Diagnostic Test':
         except Exception as error:
             st.error(f'Could not create a 5-question assessment: {error}')
     if st.session_state.quiz and st.session_state.results is None:
-        quiz=st.session_state.quiz
-        st.warning('Reference-based and AI-generated questions can be imperfect. Review source descriptions and answers before relying on results.') if quiz[0]['source']!='Curated demo bank' else None
-        with st.form(f"quiz_{st.session_state.quiz_key}"):
+    quiz = st.session_state.quiz
+        if quiz[0].get("source") != "Curated demo bank":
+            st.warning(
+                "Reference-based and AI-generated questions can be imperfect. "
+                "Review source descriptions and answers before relying on results."
+            )
+    with st.form(f"quiz_{st.session_state.quiz_key}"):
             selected=[];conf=[]
             for i,q in enumerate(quiz):
                 st.markdown(f"**Q{i+1}. {q['question']}**")
