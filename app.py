@@ -136,15 +136,16 @@ elif section=='📝 Diagnostic Test':
             st.session_state.results=None
             st.session_state.quiz_key=en.uuid_hash(str(random.random()))
             st.rerun()
-        except Exception as error:
-        if st.session_state.quiz and st.session_state.results is None:
+             except Exception as error:
+            st.error(f"Could not create a 5-question assessment: {error}")
+
+    if st.session_state.quiz and st.session_state.results is None:
         quiz = st.session_state.quiz
         if quiz[0].get("source") != "Curated demo bank":
             st.warning(
                 "Reference-based and AI-generated questions can be imperfect. "
                 "Review source descriptions and answers before relying on results."
             )
-        with st.form(f"quiz_{st.session_state.quiz_key}"):
     with st.form(f"quiz_{st.session_state.quiz_key}"):
             selected=[];conf=[]
             for i,q in enumerate(quiz):
