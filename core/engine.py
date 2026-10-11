@@ -70,7 +70,7 @@ def quadrant(accuracy, confidence):
 def score_quiz(quiz, responses, confidences):
     rows=[]
     for q, answer, c in zip(quiz, responses, confidences):
-        rows.append(dict(question_id=q['id'],question=q['question'],subject=q['subject'],topic=q['topic'],difficulty=q['difficulty'],selected=answer,answer=q['answer'],correct=int(answer==q['answer']),confidence=int(c),explanation=q['explanation'],source=q['source']))
+        rows.append(dict(question_id=q['id'],question=q['question'],subject=q['subject'],topic=q['topic'],difficulty=q['difficulty'],selected=answer,answer=q['answer'],correct=int(answer==q['answer']),confidence=int(c),explanation=q['explanation'],source=q['source'],source_url=q.get('source_url','')))
     return rows
 
 def diagnostic(rows):
@@ -106,3 +106,83 @@ def extract_candidates(text,limit=30):
         out.append(x)
         if len(out)>=limit: break
     return out
+
+
+# ----------------------------------------------------------
+# Kinematics question families: independently computed keys.
+# Not generative AI, and not copied from search results.
+# ----------------------------------------------------------
+def is_straight_line_motion(subject, topic):
+    text = (topic or '').lower()
+    return (subject or '').lower() == 'physics' and any(
+        phrase in text for phrase in (
+            'straight line', 'rectilinear', '1d motion',
+            'one dimensional motion', 'linear motion', 'kinematics',
+            'motion in one dimension'
+        )
+    )
+
+
+def kinematics_quiz(subject, topic, difficulty, count=10, exam='ISC Boards', grade='Class 11'):
+    """Build 5-20 diverse parameterised, calculator-checked MCQs.
+
+    Uses basic constant-acceleration kinematics and dimensions.
+    Uses online reference links but no third-party AI or Google scraping.
+    """
+    import random
+    rng = random.SystemRandom()
+    count = max(5, min(20, int(count)))
+    source_url = 'https://openstax.org/books/college-physics-2e/pages/2-5-motion-equations-for-constant-acceleration-in-one-dimension'
+    # Each tuple: (concept, question, correct numeric, wrong numeric candidates, unit, explanation).
+    # Fresh numbers are selected for every question.
+    families=[]
+    def add(concept, prompt, value, distractors, unit, reasoning):
+        families.append((concept, prompt, value, distractors, unit, reasoning))
+
+    a=rng.randint(2,6); t=rng.randint(3,9); u=rng.randint(2,12)
+    add('Velocity and acceleration',f'A particle moves at {u} m/s and accelerates uniformly at {a} m/s² for {t} s. Find its final velocity.', u+a*t,[u+a*(t-1), a*t, u+2*a*t], 'm/s',f'v = u + at = {u} + {a} × {t} = {u+a*t} m/s.')
+    a=rng.randint(2,6); t=rng.randint(2,8)
+    add('Displacement',f'A body starts from rest and accelerates at {a} m/s² for {t} s. Find displacement.',a*t*t/2,[a*t*t,a*t, a*t*t/4],'m',f's = ut + ½at² = ½ × {a} × {t}² = {a*t*t/2:g} m.')
+    u=rng.randint(6,18); v=u+rng.randint(4,18);t=rng.randint(2,8)
+    add('Average velocity',f'A car increases its velocity uniformly from {u} m/s to {v} m/s. What is its average velocity over this interval?',(u+v)/2,[v-u, v, (v-u)/2],'m/s',f'With constant acceleration, average velocity = (u+v)/2 = ({u}+{v})/2.')
+    u=rng.randint(3,12);v=u+rng.randint(10,25);t=rng.randint(2,8)
+    add('Acceleration',f'An object changes velocity from {u} m/s to {v} m/s in {t} s at a constant rate. Find acceleration.',(v-u)/t,[(v+u)/t,(v-u)*t,v/t],'m/s²',f'a = (v-u)/t = ({v}-{u})/{t} = {(v-u)/t:g} m/s².')
+    u=rng.randint(10,25); a=rng.randint(2,6)
+    add('Stopping time',f'A vehicle moving at {u} m/s brakes with a constant retardation of {a} m/s². Find the stopping time.',u/a,[u*a,u/(2*a),2*u/a],'s',f'0 = u − at, so t = u/a = {u}/{a} = {u/a:g} s.')
+    u=rng.randint(8,20); a=rng.randint(2,6)
+    add('Stopping distance',f'A vehicle moving at {u} m/s decelerates uniformly at {a} m/s² until it stops. Find its stopping distance.',u*u/(2*a),[u/a,u*u/a,u*u/(4*a)],'m',f'0 = u² − 2as, so s = u²/(2a) = {u*u}/({2*a}) = {u*u/(2*a):g} m.')
+    u=rng.randint(4,12);t=rng.randint(3,8)
+    add('Uniform motion',f'A cyclist travels at a constant velocity of {u} m/s for {t} s. Find displacement.',u*t,[u+t,u*t/2,u*t*t],'m',f's = vt = {u} × {t} = {u*t} m.')
+    a=rng.randint(2,7); t=rng.randint(3,8)
+    add('Velocity-time graph',f'An object starts from rest. Its velocity increases linearly to {a*t} m/s in {t} s. Find displacement from the velocity-time graph.',a*t*t/2,[a*t*t,a*t,a*t*t/4],'m',f'Area of triangle under v–t graph = ½ × base × height = ½ × {t} × {a*t}.')
+    u=rng.randint(2,10);a=rng.randint(2,6);t=rng.randint(3,8)
+    add('Distance with acceleration',f'A particle has initial velocity {u} m/s and accelerates uniformly at {a} m/s² for {t} s in the same direction. Find displacement.',u*t+a*t*t/2,[u*t+a*t*t,u*t+a*t,u*t-a*t*t/2],'m',f's = ut + ½at² = {u}×{t} + ½×{a}×{t}².')
+    u=rng.randint(2,10);a=rng.randint(2,6);s=rng.randint(8,30)
+    val=u*u+2*a*s
+    add('Velocity-displacement relation',f'A body starts at {u} m/s and accelerates uniformly at {a} m/s² over {s} m. What is the square of its final speed (v²)?',val,[u*u+a*s,u*u+4*a*s,2*a*s],'m²/s²',f'v² = u² + 2as = {u}² + 2×{a}×{s} = {val} m²/s².')
+    # Extra independent variations for a 15-20 question test.
+    for extra_i in range(10):
+        a=rng.randint(2,8);t=3+extra_i;u=rng.randint(1,12)
+        if len(families)%2:
+            add('Uniform acceleration', f'An object accelerates uniformly from {u} m/s at {a} m/s² over {t} s. How much does its speed change?',a*t,[u+a*t,u*t,a*t*t/2],'m/s',f'Change in velocity = at = {a}×{t} = {a*t} m/s.')
+        else:
+            add('Average velocity',f'A body moves at {u} m/s initially and {u+a*t} m/s finally during {t} s of constant acceleration. Its average velocity is:',u+a*t/2,[u+a*t,u+a*t/4,a*t/2],'m/s',f'Average velocity = (u+v)/2 = ({u}+{u+a*t})/2.')
+    rng.shuffle(families)
+    output=[]
+    for i,(concept,prompt,value,wrong,unit,explanation) in enumerate(families[:count]):
+        # Round all displayed values identically and reject duplicate choices.
+        values=[value]+wrong
+        displayed=[f'{v:.2f}'.rstrip('0').rstrip('.') + ' ' + unit for v in values]
+        if len(set(displayed))<4:
+            # Deterministic fallback distractors, all distinct after rounding.
+            step=max(1.0, abs(value)*0.2)
+            displayed=[f'{v:.2f}'.rstrip('0').rstrip('.') + ' ' + unit for v in (value,value+step,value+2*step,value+3*step)]
+        if len(set(displayed))<4:
+            displayed=[f'{value + offset:.2f} {unit}' for offset in (0, 10, 20, 30)]
+        answer=displayed[0]
+        rng.shuffle(displayed)
+        output.append(dict(id=uuid_hash(prompt),subject=subject,topic=concept,
+            difficulty=difficulty,question=prompt,options=displayed,answer=answer,
+            explanation=explanation,source='Original equation-based problem; OpenStax reference',
+            source_url=source_url))
+    return output
