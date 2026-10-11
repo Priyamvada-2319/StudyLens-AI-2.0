@@ -107,10 +107,17 @@ elif section=='📝 Diagnostic Test':
                 with st.spinner('Searching public reference pages and preparing your questions...'):
                     if en.is_straight_line_motion(subject, topic):
                         quiz=en.kinematics_quiz(subject,topic,difficulty,n,exam,grade)
+                    
                     else:
-                        quiz=generate_reference_quiz(subject,topic,difficulty,min(n,12),exam,grade)
-                        if len(quiz)<n:
-                            st.warning(f'This reference source supports only {len(quiz)} questions, not {n}.')
+                        raise ValueError(
+                            f"StudyLens does not yet have a validated "
+                            f"{exam} question generator for '{topic}' "
+                            f"in {subject}. Please choose a supported "
+                            f"topic or use the Local AI option. "
+                            f"General-knowledge questions will not "
+                            f"be substituted for syllabus questions."
+                                )
+
             elif source=='Curated demo bank':
                 bank=en.question_bank(subject,topic,difficulty)
                 if len(bank)<5:
