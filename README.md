@@ -1,6 +1,5 @@
 # StudyLens AI 2.0
 
-A **no-API-key-required** educational exhibition prototype built with Streamlit.
 
 ## Features
 
