@@ -37,7 +37,7 @@ with st.sidebar:
     if exam=='Other / Custom':exam=st.text_input('Specify examination','School examination')
     grade=st.selectbox('Level',['Class 8','Class 9','Class 10','Class 11','Class 12','Graduation','Other'],index=3)
     st.info('Cloud mode: hosted custom-topic AI. Local AI is optional.')
-    section=st.radio('Navigate',['🏠 Overview','📝 Diagnostic Test','📊 My Diagnostics','🗓️ Study Planner','🃏 Flashcards','✅ Revision Tracker','🎞️ Learning Reels','💬 Concept Coach','🧪 Same-Score Lab','📚 Source Material'])
+    section=st.radio('Navigate',['🏠 Overview','📝 Diagnostic Test','📊 My Diagnostics','🗓️ Study Planner','🃏 Flashcards','✅ Revision Tracker','💬 Concept Coach','🧪 Same-Score Lab','📚 Source Material'])
 
 st.markdown('''<style>.block-container{max-width:1250px}.stButton button{border-radius:9px}</style>''',unsafe_allow_html=True)
 
