@@ -91,10 +91,10 @@ elif section=='📚 Source Material':
             st.success(f'Added {n} source-excerpt recall cards.')
 
 elif section=='📝 Diagnostic Test':
-    st.subheader('Start a diagnostic assessment')
-    subjects=sorted(set(x[0]subject = st.selectbox('Subject', subjects + ['Custom subject'], index=0)
-    if subject=='Custom subject':
-        subject=st.text_input('Subject name','History').strip()
+    subjects = sorted({q['subject'] for q in en.question_bank()})
+    subject = st.selectbox('Subject', subjects + ['Custom subject'], index=0)
+    if subject == 'Custom subject':
+        subject = st.text_input('Subject name', 'History').strip()
     topic=st.text_input('Enter any topic',value='Motion in a Straight Line',placeholder='e.g. Cell division, World War I, Integration, Photosynthesis').strip()
     difficulty=st.selectbox('Question difficulty',en.DIFFICULTIES,index=1)
     source=st.radio('Question source',[
