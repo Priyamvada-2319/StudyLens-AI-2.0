@@ -92,8 +92,7 @@ elif section=='📚 Source Material':
 
 elif section=='📝 Diagnostic Test':
     st.subheader('Start a diagnostic assessment')
-    subjects=sorted(set(x[0] for x in en.SEEDS))
-    subject=st.selectbox('Subject',subjects+['Custom subject'],index=subjects.index('Choose'))
+    subjects=sorted(set(x[0]subject = st.selectbox('Subject', subjects + ['Custom subject'], index=0)
     if subject=='Custom subject':
         subject=st.text_input('Subject name','History').strip()
     topic=st.text_input('Enter any topic',value='Motion in a Straight Line',placeholder='e.g. Cell division, World War I, Integration, Photosynthesis').strip()
